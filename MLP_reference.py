@@ -158,6 +158,14 @@ print_c_array("b1", lin1.b.squeeze(0), "float")
 print_c_array("W2", lin2.W, "float")
 print_c_array("b2", lin2.b.squeeze(0), "float")
 
+def int8_to_hex(x):
+    """Convert signed int8 (-128..127) to 2's complement hex (00..FF)."""
+    return f"{int(x) & 0xFF:02X}"   # cast to Python int first
+    
+def int32_to_hex(x):
+    """Convert signed int32 to 8-digit 2's complement hex."""
+    return f"{int(x) & 0xFFFFFFFF:08X}"
+
 # -----------------------------
 # 2) Int8 per-tensor symmetric quantization + scales
 #    (int8 weights, int32 biases in weight scale domain)
@@ -179,7 +187,9 @@ print(f"// Scales used during dequant: real_W = int8_W * scale")
 print(f"const float SCALE_W1 = {sW1:.9g}f;")
 print(f"const float SCALE_W2 = {sW2:.9g}f;\n")
 print_c_array("W1_q", W1_q.astype(np.int8), "int8_t")
+np.savetxt("W1_q.mem", [int8_to_hex(v) for v in W1_q.reshape(-1)], fmt="%s")
 print_c_array("b1_q", b1_q.squeeze(0).astype(np.int32), "int32_t")
+np.savetxt("b1_q.mem", [int32_to_hex(v) for v in b1_q.reshape(-1)], fmt="%s")
 print_c_array("W2_q", W2_q.astype(np.int8), "int8_t")
 print_c_array("b2_q", b2_q.squeeze(0).astype(np.int32), "int32_t")
 
