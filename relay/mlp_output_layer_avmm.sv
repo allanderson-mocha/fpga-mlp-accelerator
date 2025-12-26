@@ -1,3 +1,5 @@
+// NOTE: FOLLOWING CODE IS DEPRECATED AND NEEDS UPDATING TO CLEANED MODULES
+
 `timescale 1ns/1ps
 
 module mlp_output_layer_avmm #(
@@ -43,12 +45,7 @@ module mlp_output_layer_avmm #(
     wire [ACC_W*OUTPUT_SIZE-1:0] logits_flat_internal;
 
     // ---------------- Output Layer ----------------
-    output_layer #(
-        .HIDDEN_LAYER_SIZE(HIDDEN_SIZE),
-        .OUTPUT_SIZE(OUTPUT_SIZE),
-        .ACCUMULATOR_WIDTH(ACC_W),
-        .WEIGHT_WIDTH(WEIGHT_W)
-    ) u_fc (
+    output_layer u_fc (
         .clk(clk),
         .rst_n(reset_n),
         .start(start),
@@ -98,15 +95,4 @@ module mlp_output_layer_avmm #(
             end
         end
     end
-
-    // ---------------- Argmax (Predicted Class & One-hot) ----------------
-    argmax_comb #(
-        .ACC_W(ACC_W),
-        .OUTPUT_SIZE(OUTPUT_SIZE)
-    ) u_argmax (
-        .logits(logits_flat_internal[ACC_W*OUTPUT_SIZE-1 -: ACC_W*OUTPUT_SIZE]), 
-        .class_idx(class_idx),
-        .onehot(one_hot)
-    );
-
 endmodule

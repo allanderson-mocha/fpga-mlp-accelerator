@@ -62,7 +62,7 @@ module hidden_node (
                 end
 
                 DONE_STATE: begin
-                    out <= (acc < 0) ? 0 : acc;
+                    out <= (acc < 0) ? 0 : acc; // out only latched once per start
                     done <= 1;
                     state <= IDLE;
                 end

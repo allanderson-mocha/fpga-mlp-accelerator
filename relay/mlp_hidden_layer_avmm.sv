@@ -1,3 +1,5 @@
+// NOTE: FOLLOWING CODE IS DEPRECATED AND NEEDS UPDATING TO CLEANED MODULES
+
 `timescale 1ns/1ps
 
 module mlp_hidden_layer_avmm #(
@@ -35,17 +37,12 @@ module mlp_hidden_layer_avmm #(
     // =========================
     // INSTANTIATE HIDDEN LAYER
     // =========================
-    mlp_hidden_layer #(
-        .IN_DIM(IN_DIM),
-        .DATA_W(DATA_W),
-        .ACC_W(ACC_W),
-        .HIDDEN_SIZE(HIDDEN_SIZE)
-    ) u_hidden_layer (
+    mlp_hidden_layer u_hidden_layer (
         .clk(clk),
         .rst_n(reset_n),
         .bus_in(bus_in),
         .start(start),
-        .hidden_out_dbg_flat(hidden_out_flat),
+        .hidden_out_flat(hidden_out_flat),
         .hidden_all_done(hidden_done)
     );
 

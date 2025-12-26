@@ -2,103 +2,74 @@ import nn_arch_pkg::*;
 `timescale 1ns/1ps
 
 module output_layer (
-    input  logic clk,
-    input  logic rst_n,
-    input  logic start,
+    input logic                         clk,
+    input logic                         rst_n,
+    input logic [ACC_W*HIDDEN_SIZE-1:0] hidden_in_flat,
+    input logic                         start,
 
-    input  acc_t  h_in[HIDDEN_SIZE],
-    input  data_t weight[HIDDEN_SIZE][OUTPUT_SIZE],
-    input  acc_t  bias[OUTPUT_SIZE],
+    input data_t weight[HIDDEN_SIZE][OUTPUT_SIZE],
+    input acc_t  bias[OUTPUT_SIZE],
 
-    output acc_t logits[OUTPUT_SIZE],
-    output logic finished
+    output logic [3:0]             class_idx,
+    output logic [OUTPUT_SIZE-1:0] one_out,
+    output logic                   done
 );
 
-    typedef enum logic [1:0] {
-        IDLE,
-        ACCUM,
-        NEXT_PAIR,
-        DONE
-    } state_t;
-    state_t state;
+    logic finished;
+    logic start_d;
+    logic start_pulse;
+    acc_t logits[OUTPUT_SIZE];
+    acc_t hidden_in[HIDDDEN_SIZE];
+    
+    // Ensure start signal is only a pulse
+    always_ff @(posedge clk or negedge rst_n)
+        if (!rst_n) start_d <= 1'b0;
+        else        start_d <= start;
 
-    int unsigned hid_idx; 
-    int unsigned out_pair;   
+    assign start_pulse = start & ~start_d;
 
-    acc_t acc0, acc1;
+    // Unpack hidden output signal
+    genvar i;
+    generate
+        for (i = 0; i < HIDDEN_SIZE; i++) begin : UNPACK_HIDDEN
+            assign hidden_in[i] =
+                hidden_in_flat[(i+1)*ACC_W-1 -: ACC_W];
+        end
+    endgenerate
 
-    function automatic acc_t weight_ext(input data_t w);
-        weight_ext = acc_t'($signed(w));
-    endfunction
+
+    // ---------------- Output Core ----------------
+    output_core u_oc (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(start_pulse),
+        .h_in(hidden_in),
+        .weight(weight),
+        .bias(bias),
+        .logits(logits),
+        .finished(finished)
+    );
+
+    // Argmax operation
+    logic [3:0] argmax_idx;
+    logic [OUTPUT_SIZE-1:0] argmax_onehot;
+
+    argmax_comb u_argmax (
+        .logits(logits),
+        .class_idx(argmax_idx),
+        .onehot(argmax_onehot)
+    );
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state    <= IDLE;
-            finished <= 1'b0;
-            hid_idx  <= 0;
-            out_pair <= 0;
-
-            acc0 <= '0;
-            acc1 <= '0;
-
-            for (int i = 0; i < OUTPUT_SIZE; i++)
-                logits[i] <= '0;
+            class_idx <= '0;
+            one_out   <= '0;
         end
-        else begin
-            finished <= 1'b0;
-
-            case (state)
-                IDLE: begin
-                    if (start) begin
-                        hid_idx  <= 0;
-                        out_pair <= 0;
-
-                        acc0 <= bias[0];
-                        acc1 <= bias[1];
-
-                        state <= ACCUM;
-                    end
-                end
-
-                ACCUM: begin
-                    acc0 <= acc0 +
-                            $signed(h_in[hid_idx]) *
-                            weight_ext(weight[hid_idx][out_pair*2]);
-
-                    acc1 <= acc1 +
-                            $signed(h_in[hid_idx]) *
-                            weight_ext(weight[hid_idx][out_pair*2 + 1]);
-
-                    if (hid_idx == HIDDEN_SIZE-1)
-                        state <= NEXT_PAIR;
-                    else
-                        hid_idx <= hid_idx + 1;
-                end
-
-                NEXT_PAIR: begin
-                    logits[out_pair*2]     <= acc0;
-                    logits[out_pair*2 + 1] <= acc1;
-
-                    if (out_pair == (OUTPUT_SIZE/2 - 1)) begin
-                        state <= DONE;
-                    end
-                    else begin
-                        out_pair <= out_pair + 1;
-                        hid_idx  <= 0;
-
-                        acc0 <= bias[out_pair*2 + 2];
-                        acc1 <= bias[out_pair*2 + 3];
-
-                        state <= ACCUM;
-                    end
-                end
-
-                DONE: begin
-                    finished <= 1'b1;
-                    state    <= IDLE;
-                end
-
-            endcase
+        else if (finished) begin
+            class_idx <= argmax_idx;
+            one_out   <= argmax_onehot;
         end
     end
+
+    assign done = finished;
 endmodule
